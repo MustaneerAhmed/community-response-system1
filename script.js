@@ -92,13 +92,16 @@ initApp();
 // ==========================================
 
 let volunteers = [
-  { id: 1, name: 'Dr. Sarah Smith', skill: 'Medical', location: 'Downtown Center', hours: 12 },
-  { id: 2, name: 'Chef Mario', skill: 'Food', location: 'North District', hours: 8 },
-  { id: 3, name: 'Mike Johnson', skill: 'Rescue', location: 'East Side Encampment', hours: 10 },
-  { id: 4, name: 'Emily Davis', skill: 'Medical', location: 'West Valley', hours: 6 },
-  { id: 5, name: 'John Doe', skill: 'General', location: 'City Center', hours: 5 }
+  { id: 1,  name: 'Dr. Sarah Smith',  skill: 'Medical',   location: 'North District',        hours: 12, availability: true },
+  { id: 2,  name: 'Chef Mario',       skill: 'Food',      location: 'North District',        hours: 8,  availability: true },
+  { id: 3,  name: 'Mike Johnson',     skill: 'Rescue',    location: 'East Side Encampment',  hours: 10, availability: true },
+  { id: 4,  name: 'Emily Davis',      skill: 'Medical',   location: 'Downtown Center',       hours: 6,  availability: false },
+  { id: 5,  name: 'John Doe',         skill: 'General',   location: 'Downtown Center',       hours: 5,  availability: true },
+  { id: 6,  name: 'Priya Kapoor',     skill: 'Logistics', location: 'East Side Encampment',  hours: 9,  availability: true },
+  { id: 7,  name: 'Ahmed Raza',       skill: 'Rescue',    location: 'North District',        hours: 7,  availability: true },
+  { id: 8,  name: 'Lisa Chen',        skill: 'Food',      location: 'Downtown Center',       hours: 11, availability: true }
 ];
-let nextVolId  = 6;
+let nextVolId  = 9;
 
 let areas = [];
 let nextAreaId = 1;
@@ -133,13 +136,15 @@ const skillIcon = {
   Medical:   '<i class="ph-fill ph-first-aid-kit"></i>',
   Food:      '<i class="ph-fill ph-hamburger"></i>',
   Rescue:    '<i class="ph-fill ph-lifebuoy"></i>',
+  Logistics: '<i class="ph-fill ph-package"></i>',
   General:   '<i class="ph-fill ph-users"></i>'
 };
 
 const badgeClass = {
   Medical:   'badge-medical',
   Food:      'badge-logistics',
-  Rescue:    'badge-general',
+  Rescue:    'badge-rescue',
+  Logistics: 'badge-logistics',
   General:   'badge-general'
 };
 
@@ -267,7 +272,7 @@ function addVolunteer() {
   if (!location) return shakeField(volLocationEl);
   if (!hours || hours < 1) return shakeField(volHoursEl);
 
-  volunteers.push({ id: nextVolId++, name, skill, location, hours });
+  volunteers.push({ id: nextVolId++, name, skill, location, hours, availability: true });
   renderVolunteerList();
   saveToLocalStorage();
 
@@ -298,9 +303,13 @@ function renderVolunteerList() {
   volunteers.forEach(vol => {
     const tag = document.createElement('div');
     tag.className = 'list-item-card';
+    const availDot = vol.availability !== false
+      ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--success);" title="Available"></span>'
+      : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--danger);opacity:0.6;" title="Unavailable"></span>';
 
     tag.innerHTML = `
       <div class="item-info">
+        ${availDot}
         <span class="item-name">${escapeHTML(vol.name)}</span>
         <span class="skill-badge ${badgeClass[vol.skill] || ''}">
           ${skillIcon[vol.skill] || ''} ${vol.skill}
@@ -371,13 +380,35 @@ function renderResultCard({ areaName, food, medical, shelter, score, priority, a
   card.className = `result-card priority-${priority.cssClass}`;
 
   const assignedHTML = assigned.length > 0
-    ? assigned.map(v => `
-        <div class="assigned-tag">
-          ${skillIcon[v.skill] || ''} Assigned to: ${escapeHTML(v.name)}
-          <span style="color:var(--text-muted);font-size:0.75rem;">(${v.skill} Volunteer)</span>
-        </div>
-      `).join('')
-    : `<p style="color:var(--text-muted);font-style:italic;font-size:0.85rem;">No volunteers matched.</p>`;
+    ? assigned.map(v => {
+        const matchType = v._matchType || '';
+        let matchLabel = '';
+        let matchColor = 'var(--text-muted)';
+        if (matchType === 'exact') {
+          matchLabel = '<span style="font-size:0.65rem;padding:2px 6px;border-radius:10px;background:rgba(1,181,116,0.12);color:var(--success);font-weight:600;margin-left:4px;">Skill + Location</span>';
+          matchColor = 'var(--success)';
+        } else if (matchType === 'skill') {
+          matchLabel = '<span style="font-size:0.65rem;padding:2px 6px;border-radius:10px;background:rgba(67,24,255,0.08);color:var(--primary);font-weight:600;margin-left:4px;">Skill Match</span>';
+          matchColor = 'var(--primary)';
+        } else if (matchType === 'fallback') {
+          matchLabel = '<span style="font-size:0.65rem;padding:2px 6px;border-radius:10px;background:rgba(255,206,32,0.12);color:#d0a400;font-weight:600;margin-left:4px;">Fallback</span>';
+          matchColor = 'var(--warning)';
+        }
+        return `
+          <div class="assignment-card" style="border-left:3px solid ${matchColor};">
+            <div style="display:flex;align-items:center;gap:6px;font-weight:600;font-size:0.88rem;">
+              ${skillIcon[v.skill] || ''}
+              <span>Assigned to: ${escapeHTML(v.name)}</span>
+              ${matchLabel}
+            </div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:10px;">
+              <span>${v.skill} Volunteer</span>
+              <span style="display:flex;align-items:center;gap:3px;"><i class="ph ph-map-pin"></i>${escapeHTML(v.location || 'N/A')}</span>
+            </div>
+          </div>
+        `;
+      }).join('')
+    : `<p style="color:var(--text-muted);font-style:italic;font-size:0.85rem;">No available volunteers matched.</p>`;
 
   const recsHTML = recommendations
     .map(r => `<li><i class="ph-fill ph-check-circle"></i> <span>${escapeHTML(r)}</span></li>`)
@@ -408,9 +439,9 @@ function renderResultCard({ areaName, food, medical, shelter, score, priority, a
 
     <div class="assigned-title"><i class="ph-fill ph-users-three"></i> Best Fit Volunteers</div>
     <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px; font-style:italic;">
-      Assigned based on skill-demand matching.
+      Assigned based on skill, location proximity &amp; availability.
     </p>
-    <div class="assigned-list">${assignedHTML}</div>
+    <div class="assigned-list-v2">${assignedHTML}</div>
 
     <div class="recommendations-box">
       <div class="rec-header"><i class="ph-fill ph-lightbulb"></i> Area Recommendations</div>
@@ -446,55 +477,82 @@ function analyzeAll() {
     renderAreasList();
     saveToLocalStorage();
 
-    // Distribute volunteers globally across areas (highest priority first)
-    let availableVols = [...volunteers];
+    // ===== SMART ASSIGNMENT ENGINE =====
+    // Builds a demand list per area, then matches volunteers in 3 tiers:
+    //   1. Skill match + same location (exact)
+    //   2. Skill match, any location (skill)
+    //   3. Any available volunteer (fallback)
+
+    let availableVols = volunteers.filter(v => v.availability !== false).map(v => ({...v}));
+
+    // Map need types to required skills
+    function buildDemandList(area) {
+      const demands = [];
+      for (let i = 0; i < area.medical; i++)  demands.push('Medical');
+      for (let i = 0; i < area.food; i++)     demands.push('Food');
+      for (let i = 0; i < area.shelter; i++)  demands.push('Rescue');
+      return demands;
+    }
+
+    // Find and remove a volunteer from availableVols by index
+    function takeVol(idx, matchType) {
+      const vol = availableVols.splice(idx, 1)[0];
+      vol._matchType = matchType;
+      return vol;
+    }
 
     areas.forEach(area => {
       let assigned = [];
-      
-      // Medical allocation (Match Medical volunteers to medical needs)
-      let medNeed = area.medical;
-      for (let i = availableVols.length - 1; i >= 0; i--) {
-        if (availableVols[i].skill === 'Medical' && medNeed > 0) {
-          assigned.push(availableVols.splice(i, 1)[0]);
-          medNeed--;
+      const demands = buildDemandList(area);
+
+      // --- Tier 1: Exact match (skill + location) ---
+      for (let d = demands.length - 1; d >= 0; d--) {
+        const neededSkill = demands[d];
+        const idx = availableVols.findIndex(
+          v => v.skill === neededSkill && v.location.toLowerCase() === area.name.toLowerCase()
+        );
+        if (idx !== -1) {
+          assigned.push(takeVol(idx, 'exact'));
+          demands.splice(d, 1);
         }
       }
 
-      // Food allocation (Match Food volunteers to food needs)
-      let foodNeed = area.food;
-      for (let i = availableVols.length - 1; i >= 0; i--) {
-        if (availableVols[i].skill === 'Food' && foodNeed > 0) {
-          assigned.push(availableVols.splice(i, 1)[0]);
-          foodNeed--;
+      // --- Tier 2: Skill match, any location ---
+      for (let d = demands.length - 1; d >= 0; d--) {
+        const neededSkill = demands[d];
+        const idx = availableVols.findIndex(v => v.skill === neededSkill);
+        if (idx !== -1) {
+          assigned.push(takeVol(idx, 'skill'));
+          demands.splice(d, 1);
         }
       }
 
-      // Rescue allocation (Match Rescue volunteers to shelter needs)
-      let rescueNeed = area.shelter;
-      for (let i = availableVols.length - 1; i >= 0; i--) {
-        if (availableVols[i].skill === 'Rescue' && rescueNeed > 0) {
-          assigned.push(availableVols.splice(i, 1)[0]);
-          rescueNeed--;
-        }
-      }
-
-      // General / Emergency fallback
-      let remainingNeed = medNeed + foodNeed + rescueNeed;
-      if (area.priority.label === 'High') {
-        // High priority: choose best available match (anyone remaining)
-        for (let i = availableVols.length - 1; i >= 0; i--) {
-          if (remainingNeed > 0) {
-            assigned.push(availableVols.splice(i, 1)[0]);
-            remainingNeed--;
+      // --- Tier 2b: Logistics volunteers can fill Food or Rescue gaps ---
+      for (let d = demands.length - 1; d >= 0; d--) {
+        const neededSkill = demands[d];
+        if (neededSkill === 'Food' || neededSkill === 'Rescue') {
+          const idx = availableVols.findIndex(v => v.skill === 'Logistics');
+          if (idx !== -1) {
+            assigned.push(takeVol(idx, 'skill'));
+            demands.splice(d, 1);
           }
         }
+      }
+
+      // --- Tier 3: Fallback for high-priority areas (any available) ---
+      if (area.priority.label === 'High' && demands.length > 0) {
+        for (let d = demands.length - 1; d >= 0; d--) {
+          if (availableVols.length === 0) break;
+          assigned.push(takeVol(0, 'fallback'));
+          demands.splice(d, 1);
+        }
       } else {
-        // Normal priority: only assign General volunteers to fallback
-        for (let i = availableVols.length - 1; i >= 0; i--) {
-          if (availableVols[i].skill === 'General' && remainingNeed > 0) {
-            assigned.push(availableVols.splice(i, 1)[0]);
-            remainingNeed--;
+        // Normal priority: only General volunteers as fallback
+        for (let d = demands.length - 1; d >= 0; d--) {
+          const idx = availableVols.findIndex(v => v.skill === 'General');
+          if (idx !== -1) {
+            assigned.push(takeVol(idx, 'fallback'));
+            demands.splice(d, 1);
           }
         }
       }
@@ -604,6 +662,7 @@ function resetAll() {
   shelterEl.value   = '';
   volNameEl.value   = '';
   volSkillEl.value  = '';
+  volLocationEl.value = '';
   volHoursEl.value  = '';
 
   volunteers = [];
@@ -665,13 +724,18 @@ function loadSampleData() {
 
   // Add Sample Volunteers
   const sampleVols = [
-    { name: 'Dr. Sarah Smith', skill: 'Medical', location: 'Downtown', hours: 12 },
-    { name: 'Chef Mario', skill: 'Food', location: 'North District', hours: 8 },
-    { name: 'Mike Johnson', skill: 'Rescue', location: 'East Side', hours: 24 }
+    { name: 'Dr. Sarah Smith',  skill: 'Medical',   location: 'North District',        hours: 12, availability: true },
+    { name: 'Chef Mario',       skill: 'Food',      location: 'North District',        hours: 8,  availability: true },
+    { name: 'Mike Johnson',     skill: 'Rescue',    location: 'East Side Encampment',  hours: 10, availability: true },
+    { name: 'Emily Davis',      skill: 'Medical',   location: 'Downtown Center',       hours: 6,  availability: false },
+    { name: 'John Doe',         skill: 'General',   location: 'Downtown Center',       hours: 5,  availability: true },
+    { name: 'Priya Kapoor',     skill: 'Logistics', location: 'East Side Encampment',  hours: 9,  availability: true },
+    { name: 'Ahmed Raza',       skill: 'Rescue',    location: 'North District',        hours: 7,  availability: true },
+    { name: 'Lisa Chen',        skill: 'Food',      location: 'Downtown Center',       hours: 11, availability: true }
   ];
 
   sampleVols.forEach(sv => {
-    volunteers.push({ id: nextVolId++, name: sv.name, skill: sv.skill, location: sv.location, hours: sv.hours });
+    volunteers.push({ id: nextVolId++, name: sv.name, skill: sv.skill, location: sv.location, hours: sv.hours, availability: sv.availability });
   });
 
   renderAreasList();
@@ -706,6 +770,8 @@ volNameEl.addEventListener('keydown', (e) => {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadFromLocalStorage();
+  // Always render the predefined volunteers on first load
+  renderVolunteerList();
 });
 
 function animateCounters() {
