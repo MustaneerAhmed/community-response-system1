@@ -92,16 +92,20 @@ initApp();
 // ==========================================
 
 let volunteers = [
-  { id: 1,  name: 'Dr. Sarah Smith',  skill: 'Medical',   location: 'North District',        hours: 12, availability: true },
-  { id: 2,  name: 'Chef Mario',       skill: 'Food',      location: 'North District',        hours: 8,  availability: true },
-  { id: 3,  name: 'Mike Johnson',     skill: 'Rescue',    location: 'East Side Encampment',  hours: 10, availability: true },
-  { id: 4,  name: 'Emily Davis',      skill: 'Medical',   location: 'Downtown Center',       hours: 6,  availability: false },
-  { id: 5,  name: 'John Doe',         skill: 'General',   location: 'Downtown Center',       hours: 5,  availability: true },
-  { id: 6,  name: 'Priya Kapoor',     skill: 'Logistics', location: 'East Side Encampment',  hours: 9,  availability: true },
-  { id: 7,  name: 'Ahmed Raza',       skill: 'Rescue',    location: 'North District',        hours: 7,  availability: true },
-  { id: 8,  name: 'Lisa Chen',        skill: 'Food',      location: 'Downtown Center',       hours: 11, availability: true }
+  { id: 1,  name: 'Dr. Sarah Smith',   skill: 'Medical',   location: 'North District',        hours: 12, availability: true },
+  { id: 2,  name: 'Nurse Ava Patel',   skill: 'Medical',   location: 'Riverside Camp',        hours: 8,  availability: true },
+  { id: 3,  name: 'Chef Mario',        skill: 'Food',      location: 'North District',        hours: 8,  availability: true },
+  { id: 4,  name: 'Lisa Chen',         skill: 'Food',      location: 'Downtown Center',       hours: 11, availability: true },
+  { id: 5,  name: 'Mike Johnson',      skill: 'Rescue',    location: 'Riverside Camp',        hours: 10, availability: true },
+  { id: 6,  name: 'Ahmed Raza',        skill: 'Rescue',    location: 'North District',        hours: 7,  availability: true },
+  { id: 7,  name: 'Priya Kapoor',      skill: 'Logistics', location: 'Downtown Center',       hours: 9,  availability: true },
+  { id: 8,  name: 'Carlos Rivera',     skill: 'Logistics', location: 'Riverside Camp',        hours: 6,  availability: true },
+  { id: 9,  name: 'John Doe',          skill: 'General',   location: 'Downtown Center',       hours: 5,  availability: true },
+  { id: 10, name: 'Fatima Zahra',      skill: 'General',   location: 'North District',        hours: 4,  availability: true },
+  { id: 11, name: 'Emily Davis',       skill: 'Medical',   location: 'Downtown Center',       hours: 6,  availability: false },
+  { id: 12, name: 'Tom Bradley',       skill: 'Rescue',    location: 'Downtown Center',       hours: 9,  availability: false }
 ];
-let nextVolId  = 9;
+let nextVolId  = 13;
 
 let areas = [];
 let nextAreaId = 1;
@@ -745,11 +749,11 @@ function loadSampleData() {
   nextAreaId = 1;
   nextVolId = 1;
 
-  // Add Sample Areas
+  // Add Sample Areas (3 areas, each with a distinct issue type & location)
   const sampleAreas = [
-    { name: 'North District',        issueType: 'Medical',   food: 25, medical: 15, shelter: 5 },
-    { name: 'East Side Encampment',  issueType: 'Rescue',    food: 5,  medical: 2,  shelter: 20 },
-    { name: 'Downtown Center',       issueType: 'Food',      food: 10, medical: 5,  shelter: 5 }
+    { name: 'North District',   issueType: 'Medical',   food: 3,  medical: 2, shelter: 1 },
+    { name: 'Riverside Camp',   issueType: 'Rescue',    food: 1,  medical: 1, shelter: 2 },
+    { name: 'Downtown Center',  issueType: 'Food',      food: 2,  medical: 1, shelter: 1 }
   ];
 
   sampleAreas.forEach(sa => {
@@ -758,16 +762,20 @@ function loadSampleData() {
     areas.push({ id: nextAreaId++, name: sa.name, issueType: sa.issueType, food: sa.food, medical: sa.medical, shelter: sa.shelter, score, priority });
   });
 
-  // Add Sample Volunteers
+  // Add Sample Volunteers (12 volunteers, good skill + location coverage)
   const sampleVols = [
-    { name: 'Dr. Sarah Smith',  skill: 'Medical',   location: 'North District',        hours: 12, availability: true },
-    { name: 'Chef Mario',       skill: 'Food',      location: 'North District',        hours: 8,  availability: true },
-    { name: 'Mike Johnson',     skill: 'Rescue',    location: 'East Side Encampment',  hours: 10, availability: true },
-    { name: 'Emily Davis',      skill: 'Medical',   location: 'Downtown Center',       hours: 6,  availability: false },
-    { name: 'John Doe',         skill: 'General',   location: 'Downtown Center',       hours: 5,  availability: true },
-    { name: 'Priya Kapoor',     skill: 'Logistics', location: 'East Side Encampment',  hours: 9,  availability: true },
-    { name: 'Ahmed Raza',       skill: 'Rescue',    location: 'North District',        hours: 7,  availability: true },
-    { name: 'Lisa Chen',        skill: 'Food',      location: 'Downtown Center',       hours: 11, availability: true }
+    { name: 'Dr. Sarah Smith',   skill: 'Medical',   location: 'North District',   hours: 12, availability: true },
+    { name: 'Nurse Ava Patel',   skill: 'Medical',   location: 'Riverside Camp',   hours: 8,  availability: true },
+    { name: 'Chef Mario',        skill: 'Food',      location: 'North District',   hours: 8,  availability: true },
+    { name: 'Lisa Chen',         skill: 'Food',      location: 'Downtown Center',  hours: 11, availability: true },
+    { name: 'Mike Johnson',      skill: 'Rescue',    location: 'Riverside Camp',   hours: 10, availability: true },
+    { name: 'Ahmed Raza',        skill: 'Rescue',    location: 'North District',   hours: 7,  availability: true },
+    { name: 'Priya Kapoor',      skill: 'Logistics', location: 'Downtown Center',  hours: 9,  availability: true },
+    { name: 'Carlos Rivera',     skill: 'Logistics', location: 'Riverside Camp',   hours: 6,  availability: true },
+    { name: 'John Doe',          skill: 'General',   location: 'Downtown Center',  hours: 5,  availability: true },
+    { name: 'Fatima Zahra',      skill: 'General',   location: 'North District',   hours: 4,  availability: true },
+    { name: 'Emily Davis',       skill: 'Medical',   location: 'Downtown Center',  hours: 6,  availability: false },
+    { name: 'Tom Bradley',       skill: 'Rescue',    location: 'Downtown Center',  hours: 9,  availability: false }
   ];
 
   sampleVols.forEach(sv => {
@@ -804,11 +812,9 @@ volNameEl.addEventListener('keydown', (e) => {
   }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadFromLocalStorage();
-  // Always render the predefined volunteers on first load
-  renderVolunteerList();
-});
+// Load saved data and always render volunteer list on startup
+loadFromLocalStorage();
+renderVolunteerList();
 
 function animateCounters() {
   const counters = document.querySelectorAll('.counter-value');
