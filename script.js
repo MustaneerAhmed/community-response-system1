@@ -91,8 +91,14 @@ initApp();
 // MAIN APP LOGIC
 // ==========================================
 
-let volunteers = [];
-let nextVolId  = 1;
+let volunteers = [
+  { id: 1, name: 'Dr. Sarah Smith', skill: 'Medical', location: 'Downtown Center', hours: 12 },
+  { id: 2, name: 'Chef Mario', skill: 'Food', location: 'North District', hours: 8 },
+  { id: 3, name: 'Mike Johnson', skill: 'Rescue', location: 'East Side Encampment', hours: 10 },
+  { id: 4, name: 'Emily Davis', skill: 'Medical', location: 'West Valley', hours: 6 },
+  { id: 5, name: 'John Doe', skill: 'General', location: 'City Center', hours: 5 }
+];
+let nextVolId  = 6;
 
 let areas = [];
 let nextAreaId = 1;
@@ -109,6 +115,7 @@ const areasEmptyMsg  = document.getElementById('areas-empty-msg');
 // Volunteer Form Elements
 const volNameEl      = document.getElementById('vol-name');
 const volSkillEl     = document.getElementById('vol-skill');
+const volLocationEl  = document.getElementById('vol-location');
 const volHoursEl     = document.getElementById('vol-hours');
 const addVolBtn      = document.getElementById('add-volunteer-btn');
 const volunteerList  = document.getElementById('volunteer-list');
@@ -124,13 +131,15 @@ const resultsContainer = document.getElementById('results-container');
 
 const skillIcon = {
   Medical:   '<i class="ph-fill ph-first-aid-kit"></i>',
-  Logistics: '<i class="ph-fill ph-package"></i>',
+  Food:      '<i class="ph-fill ph-hamburger"></i>',
+  Rescue:    '<i class="ph-fill ph-lifebuoy"></i>',
   General:   '<i class="ph-fill ph-users"></i>'
 };
 
 const badgeClass = {
   Medical:   'badge-medical',
-  Logistics: 'badge-logistics',
+  Food:      'badge-logistics',
+  Rescue:    'badge-general',
   General:   'badge-general'
 };
 
@@ -250,18 +259,21 @@ function renderAreasList() {
 function addVolunteer() {
   const name  = volNameEl.value.trim();
   const skill = volSkillEl.value;
+  const location = volLocationEl.value.trim();
   const hours = parseInt(volHoursEl.value, 10);
 
   if (!name) return shakeField(volNameEl);
   if (!skill) return shakeField(volSkillEl);
+  if (!location) return shakeField(volLocationEl);
   if (!hours || hours < 1) return shakeField(volHoursEl);
 
-  volunteers.push({ id: nextVolId++, name, skill, hours });
+  volunteers.push({ id: nextVolId++, name, skill, location, hours });
   renderVolunteerList();
   saveToLocalStorage();
 
   volNameEl.value  = '';
   volSkillEl.value = '';
+  volLocationEl.value = '';
   volHoursEl.value = '';
   volNameEl.focus();
 }
@@ -293,6 +305,7 @@ function renderVolunteerList() {
         <span class="skill-badge ${badgeClass[vol.skill] || ''}">
           ${skillIcon[vol.skill] || ''} ${vol.skill}
         </span>
+        <span class="item-sub"><i class="ph ph-map-pin"></i> ${escapeHTML(vol.location || '')}</span>
         <span class="item-sub"><i class="ph ph-clock"></i> ${vol.hours}h</span>
       </div>
       <button class="remove-btn" title="Remove volunteer" onclick="removeVolunteer(${vol.id})">
@@ -360,8 +373,8 @@ function renderResultCard({ areaName, food, medical, shelter, score, priority, a
   const assignedHTML = assigned.length > 0
     ? assigned.map(v => `
         <div class="assigned-tag">
-          ${skillIcon[v.skill] || ''} ${escapeHTML(v.name)}
-          <span style="color:var(--text-muted);font-size:0.75rem;">(${v.skill})</span>
+          ${skillIcon[v.skill] || ''} Assigned to: ${escapeHTML(v.name)}
+          <span style="color:var(--text-muted);font-size:0.75rem;">(${v.skill} Volunteer)</span>
         </div>
       `).join('')
     : `<p style="color:var(--text-muted);font-style:italic;font-size:0.85rem;">No volunteers matched.</p>`;
@@ -448,21 +461,41 @@ function analyzeAll() {
         }
       }
 
-      // Logistics allocation (Match Logistics volunteers to food/shelter needs)
-      let logNeed = area.food + area.shelter;
+      // Food allocation (Match Food volunteers to food needs)
+      let foodNeed = area.food;
       for (let i = availableVols.length - 1; i >= 0; i--) {
-        if (availableVols[i].skill === 'Logistics' && logNeed > 0) {
+        if (availableVols[i].skill === 'Food' && foodNeed > 0) {
           assigned.push(availableVols.splice(i, 1)[0]);
-          logNeed--;
+          foodNeed--;
         }
       }
 
-      // General allocation (Assign to any remaining unmet needs)
-      let genNeed = medNeed + logNeed;
+      // Rescue allocation (Match Rescue volunteers to shelter needs)
+      let rescueNeed = area.shelter;
       for (let i = availableVols.length - 1; i >= 0; i--) {
-        if (availableVols[i].skill === 'General' && genNeed > 0) {
+        if (availableVols[i].skill === 'Rescue' && rescueNeed > 0) {
           assigned.push(availableVols.splice(i, 1)[0]);
-          genNeed--;
+          rescueNeed--;
+        }
+      }
+
+      // General / Emergency fallback
+      let remainingNeed = medNeed + foodNeed + rescueNeed;
+      if (area.priority.label === 'High') {
+        // High priority: choose best available match (anyone remaining)
+        for (let i = availableVols.length - 1; i >= 0; i--) {
+          if (remainingNeed > 0) {
+            assigned.push(availableVols.splice(i, 1)[0]);
+            remainingNeed--;
+          }
+        }
+      } else {
+        // Normal priority: only assign General volunteers to fallback
+        for (let i = availableVols.length - 1; i >= 0; i--) {
+          if (availableVols[i].skill === 'General' && remainingNeed > 0) {
+            assigned.push(availableVols.splice(i, 1)[0]);
+            remainingNeed--;
+          }
         }
       }
 
@@ -632,13 +665,13 @@ function loadSampleData() {
 
   // Add Sample Volunteers
   const sampleVols = [
-    { name: 'Dr. Sarah Smith', skill: 'Medical', hours: 12 },
-    { name: 'John Doe', skill: 'Logistics', hours: 8 },
-    { name: 'Emily Chen', skill: 'General', hours: 24 }
+    { name: 'Dr. Sarah Smith', skill: 'Medical', location: 'Downtown', hours: 12 },
+    { name: 'Chef Mario', skill: 'Food', location: 'North District', hours: 8 },
+    { name: 'Mike Johnson', skill: 'Rescue', location: 'East Side', hours: 24 }
   ];
 
   sampleVols.forEach(sv => {
-    volunteers.push({ id: nextVolId++, name: sv.name, skill: sv.skill, hours: sv.hours });
+    volunteers.push({ id: nextVolId++, name: sv.name, skill: sv.skill, location: sv.location, hours: sv.hours });
   });
 
   renderAreasList();
