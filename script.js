@@ -108,6 +108,7 @@ let nextAreaId = 1;
 
 // Area Form Elements
 const areaNameEl     = document.getElementById('area-name');
+const issueTypeEl    = document.getElementById('issue-type');
 const foodEl         = document.getElementById('food-needed');
 const medicalEl      = document.getElementById('medical-needed');
 const shelterEl      = document.getElementById('shelter-needed');
@@ -197,6 +198,7 @@ function getPriorityLevel(score) {
 
 function addArea() {
   const name = areaNameEl.value.trim();
+  const issueType = issueTypeEl.value;
   const food = parseFloat(foodEl.value) || 0;
   const medical = parseFloat(medicalEl.value) || 0;
   const shelter = parseFloat(shelterEl.value) || 0;
@@ -205,16 +207,21 @@ function addArea() {
     shakeField(areaNameEl);
     return;
   }
+  if (!issueType) {
+    shakeField(issueTypeEl);
+    return;
+  }
 
   const score = calculatePriority(food, medical, shelter);
   const priority = getPriorityLevel(score);
 
-  areas.push({ id: nextAreaId++, name, food, medical, shelter, score, priority });
+  areas.push({ id: nextAreaId++, name, issueType, food, medical, shelter, score, priority });
   
   renderAreasList();
   saveToLocalStorage();
 
   areaNameEl.value = '';
+  issueTypeEl.value = '';
   foodEl.value = '';
   medicalEl.value = '';
   shelterEl.value = '';
@@ -241,11 +248,18 @@ function renderAreasList() {
   areas.forEach(area => {
     const card = document.createElement('div');
     card.className = `list-item-card area-card ${area.priority.cssClass}`;
+    const typeIcon = skillIcon[area.issueType] || '';
+    const typeBadge = area.issueType
+      ? `<span class="skill-badge ${badgeClass[area.issueType] || ''}" style="font-size:0.7rem;">${typeIcon} ${area.issueType}</span>`
+      : '';
     card.innerHTML = `
       <div class="item-info">
         <div style="display:flex; flex-direction:column; gap:4px;">
           <span class="item-name"><i class="ph-fill ph-map-pin"></i> ${escapeHTML(area.name)}</span>
-          <span class="item-sub">Score: ${area.score.toFixed(1)} &bull; ${area.food + area.medical + area.shelter} Needs</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="item-sub">Score: ${area.score.toFixed(1)} &bull; ${area.food + area.medical + area.shelter} Needs</span>
+            ${typeBadge}
+          </div>
         </div>
         <span class="priority-badge-sm ${area.priority.cssClass}">${area.priority.label}</span>
       </div>
@@ -478,16 +492,33 @@ function analyzeAll() {
     saveToLocalStorage();
 
     // ===== SMART ASSIGNMENT ENGINE =====
-    // Builds a demand list per area, then matches volunteers in 3 tiers:
-    //   1. Skill match + same location (exact)
-    //   2. Skill match, any location (skill)
-    //   3. Any available volunteer (fallback)
+    // Builds a demand list per area using issue type + numeric needs, then
+    // matches volunteers in prioritized tiers:
+    //   1. Exact: skill + same location
+    //   2. Skill match (any location)
+    //   3. Similar skill (cross-trained)
+    //   4. General volunteer fallback
+    //   5. High-priority emergency: any available
 
     let availableVols = volunteers.filter(v => v.availability !== false).map(v => ({...v}));
 
-    // Map need types to required skills
+    // Similar skills map — who can cover what
+    const similarSkills = {
+      Medical:   ['Rescue'],
+      Food:      ['Logistics'],
+      Rescue:    ['Logistics', 'Medical'],
+      Logistics: ['Food', 'Rescue'],
+      General:   ['Logistics', 'Food']
+    };
+
+    // Build demand list: issue type first, then numeric needs
     function buildDemandList(area) {
       const demands = [];
+      // Primary demand from issue type dropdown
+      if (area.issueType) {
+        demands.push(area.issueType);
+      }
+      // Secondary demands from numeric need fields
       for (let i = 0; i < area.medical; i++)  demands.push('Medical');
       for (let i = 0; i < area.food; i++)     demands.push('Food');
       for (let i = 0; i < area.shelter; i++)  demands.push('Rescue');
@@ -505,7 +536,7 @@ function analyzeAll() {
       let assigned = [];
       const demands = buildDemandList(area);
 
-      // --- Tier 1: Exact match (skill + location) ---
+      // --- Tier 1: Exact match (skill + same location) ---
       for (let d = demands.length - 1; d >= 0; d--) {
         const neededSkill = demands[d];
         const idx = availableVols.findIndex(
@@ -527,33 +558,37 @@ function analyzeAll() {
         }
       }
 
-      // --- Tier 2b: Logistics volunteers can fill Food or Rescue gaps ---
+      // --- Tier 3: Similar skill fallback (cross-trained) ---
       for (let d = demands.length - 1; d >= 0; d--) {
         const neededSkill = demands[d];
-        if (neededSkill === 'Food' || neededSkill === 'Rescue') {
-          const idx = availableVols.findIndex(v => v.skill === 'Logistics');
+        const alternatives = similarSkills[neededSkill] || [];
+        let found = false;
+        for (const altSkill of alternatives) {
+          const idx = availableVols.findIndex(v => v.skill === altSkill);
           if (idx !== -1) {
             assigned.push(takeVol(idx, 'skill'));
             demands.splice(d, 1);
+            found = true;
+            break;
           }
         }
       }
 
-      // --- Tier 3: Fallback for high-priority areas (any available) ---
+      // --- Tier 4: General volunteer as universal fallback ---
+      for (let d = demands.length - 1; d >= 0; d--) {
+        const idx = availableVols.findIndex(v => v.skill === 'General');
+        if (idx !== -1) {
+          assigned.push(takeVol(idx, 'fallback'));
+          demands.splice(d, 1);
+        }
+      }
+
+      // --- Tier 5: High-priority emergency — pull anyone left ---
       if (area.priority.label === 'High' && demands.length > 0) {
         for (let d = demands.length - 1; d >= 0; d--) {
           if (availableVols.length === 0) break;
           assigned.push(takeVol(0, 'fallback'));
           demands.splice(d, 1);
-        }
-      } else {
-        // Normal priority: only General volunteers as fallback
-        for (let d = demands.length - 1; d >= 0; d--) {
-          const idx = availableVols.findIndex(v => v.skill === 'General');
-          if (idx !== -1) {
-            assigned.push(takeVol(idx, 'fallback'));
-            demands.splice(d, 1);
-          }
         }
       }
 
@@ -657,6 +692,7 @@ function resetAll() {
   if(!confirm("Are you sure you want to clear all data?")) return;
 
   areaNameEl.value  = '';
+  issueTypeEl.value = '';
   foodEl.value      = '';
   medicalEl.value   = '';
   shelterEl.value   = '';
@@ -711,15 +747,15 @@ function loadSampleData() {
 
   // Add Sample Areas
   const sampleAreas = [
-    { name: 'North District', food: 25, medical: 15, shelter: 5 },
-    { name: 'East Side Encampment', food: 5, medical: 2, shelter: 20 },
-    { name: 'Downtown Center', food: 10, medical: 5, shelter: 5 }
+    { name: 'North District',        issueType: 'Medical',   food: 25, medical: 15, shelter: 5 },
+    { name: 'East Side Encampment',  issueType: 'Rescue',    food: 5,  medical: 2,  shelter: 20 },
+    { name: 'Downtown Center',       issueType: 'Food',      food: 10, medical: 5,  shelter: 5 }
   ];
 
   sampleAreas.forEach(sa => {
     const score = calculatePriority(sa.food, sa.medical, sa.shelter);
     const priority = getPriorityLevel(score);
-    areas.push({ id: nextAreaId++, name: sa.name, food: sa.food, medical: sa.medical, shelter: sa.shelter, score, priority });
+    areas.push({ id: nextAreaId++, name: sa.name, issueType: sa.issueType, food: sa.food, medical: sa.medical, shelter: sa.shelter, score, priority });
   });
 
   // Add Sample Volunteers
