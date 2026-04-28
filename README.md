@@ -14,4 +14,4 @@ This project is a web-based system that helps NGOs and social organizations allo
 - JavaScript
 
 ## Live Demo
-https://smart-volunteer-allocation.netlify.app
+https://reliefsyncc.vercel.app/
